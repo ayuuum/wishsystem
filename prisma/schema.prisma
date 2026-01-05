@@ -1,0 +1,201 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  DRAFT
+  DESIGN
+  BOM_REVIEW
+  PLANNING
+  IN_PRODUCTION
+  COMPLETED
+  SHIPPED
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  orderNo             String      @unique // 既存システムの受注番号
+  customerCode        String
+  customerName        String
+  productName         String
+  productSpec         String?     // 仕様（特記事項）
+  orderedDate         DateTime
+  dueDate             DateTime
+  estimatedPrice      Decimal     @db.Decimal(12, 2)
+  status              OrderStatus @default(DRAFT)
+  priority            Int         @default(3) // 1-5
+  
+  salesRepId          String?     // 営業担当
+  designerId          String?     // 設計担当
+  productionManagerId String?     // 生産管理担当
+  
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  isDeleted           Boolean     @default(false)
+
+  // Relations
+  bomItems            OrderBom[]
+  workOrders          WorkOrder[]
+}
+
+model Item {
+  id              String   @id @default(cuid())
+  itemCode        String   @unique // 既存システムの部品コード
+  itemName        String
+  itemType        ItemType @default(PART)
+  specification   String?
+  drawingNo       String?
+  unit            String
+  standardCost    Decimal  @db.Decimal(12, 2)
+  externalItemId  String?  // 既存システムの部品ID
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  inventory       Inventory?
+  orderBoms       OrderBom[]
+}
+
+enum ItemType {
+  PRODUCT
+  ASSEMBLY
+  PART
+  MATERIAL
+}
+
+model OrderBom {
+  id              String   @id @default(cuid())
+  orderId         String
+  parentBomId     String?  // 親BOMアイテム（階層構造）
+  itemId          String
+  itemCode        String
+  itemName        String
+  quantity        Decimal  @db.Decimal(12, 2)
+  unit            String
+  level           Int      @default(0) // 0=製品, 1=組立品, 2=部品...
+  sortOrder       Int      @default(0)
+  
+  unitCost        Decimal  @db.Decimal(12, 2)
+  totalCost       Decimal  @db.Decimal(12, 2)
+  
+  leadTimeDays    Int      @default(0)
+  supplierId      String?
+  remarks         String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  order           Order    @relation(fields: [orderId], references: [id])
+  item            Item     @relation(fields: [itemId], references: [id])
+  parentBom       OrderBom? @relation("BomHierarchy", fields: [parentBomId], references: [id])
+  childBoms       OrderBom[] @relation("BomHierarchy")
+}
+
+model ProcessTemplate {
+  id             String                @id @default(cuid())
+  templateName   String
+  description    String?
+  items          ProcessTemplateItem[]
+  
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model ProcessTemplateItem {
+  id                String          @id @default(cuid())
+  templateId        String
+  processName       String
+  processOrder      Int
+  standardDays      Int
+  workCenterId      String?
+  
+  template          ProcessTemplate @relation(fields: [templateId], references: [id])
+}
+
+model WorkOrder {
+  id                String      @id @default(cuid())
+  orderId           String
+  processName       String
+  processOrder      Int
+  
+  plannedStartDate  DateTime
+  plannedEndDate    DateTime
+  plannedQuantity   Decimal     @db.Decimal(12, 2)
+  
+  actualStartDate   DateTime?
+  actualEndDate     DateTime?
+  actualQuantity    Decimal?    @db.Decimal(12, 2)
+  
+  status            WorkOrderStatus @default(PLANNED)
+  predecessorId     String?     // 前工程のID
+  
+  remarks           String?
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  order             Order       @relation(fields: [orderId], references: [id])
+  results           WorkResult[]
+}
+
+enum WorkOrderStatus {
+  PLANNED
+  READY
+  IN_PROGRESS
+  COMPLETED
+  SUSPENDED
+}
+
+model WorkResult {
+  id              String   @id @default(cuid())
+  workOrderId     String
+  workerId        String
+  workDate        DateTime
+  startTime       DateTime
+  endTime         DateTime
+  quantity        Decimal  @db.Decimal(12, 2)
+  defectQuantity  Decimal  @db.Decimal(12, 2) @default(0)
+  
+  remarks         String?
+  
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id])
+}
+
+model Inventory {
+  id                String   @id @default(cuid())
+  itemId            String   @unique
+  itemCode          String   @unique
+  itemName          String
+  
+  stockQuantity     Decimal  @db.Decimal(12, 2)
+  allocatedQuantity Decimal  @db.Decimal(12, 2) @default(0)
+  availableQuantity Decimal  @db.Decimal(12, 2) // stock - allocated (computed or stored)
+  
+  safetyStock       Decimal  @db.Decimal(12, 2) @default(0)
+  
+  lastSyncedAt      DateTime @default(now())
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  item              Item     @relation(fields: [itemId], references: [id])
+}

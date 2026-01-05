@@ -1,0 +1,53 @@
+/* Basic styles for frappe-gantt */
+.gantt-container {
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: white;
+}
+
+.gantt .bar-label {
+  fill: #fff;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.gantt .bar {
+  fill: hsl(var(--primary));
+  stroke: hsl(var(--primary));
+  stroke-width: 0;
+}
+
+.gantt .bar-progress {
+  fill: hsl(var(--primary) / 0.8);
+}
+
+.gantt .handle {
+  fill: #888;
+}
+
+.gantt .grid-header {
+  fill: #f8fafc;
+  stroke: #e2e8f0;
+}
+
+.gantt .grid-row {
+  fill: #fff;
+}
+
+.gantt .grid-row:nth-child(even) {
+  fill: #f8fafc;
+}
+
+.gantt .row-line {
+  stroke: #f1f5f9;
+}
+
+.gantt .tick {
+  stroke: #e2e8f0;
+}
+
+.gantt .today-highlight {
+  fill: #fef2f2;
+  opacity: 0.5;
+}
