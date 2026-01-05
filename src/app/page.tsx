@@ -8,8 +8,54 @@ import {
   CheckCircle2,
   Clock
 } from "lucide-react";
+import { getDashboardStats } from "@/app/actions/dashboard";
+import { formatDate } from "@/lib/utils/date";
+import Link from "next/link";
 
-export default function Home() {
+export default async function Home() {
+  const statsResult = await getDashboardStats();
+  
+  // エラーハンドリング: データ取得に失敗した場合はデフォルト値を表示
+  const stats = statsResult.success && statsResult.data ? statsResult.data : {
+    inProgressCount: 0,
+    nearDueDateCount: 0,
+    thisMonthCompletedCount: 0,
+    todayWorkOrdersCount: 0,
+    inventoryStats: {
+      totalItems: 0,
+      lowStockCount: 0,
+      totalAllocated: 0,
+    },
+    alerts: [],
+    upcomingWorkOrders: [],
+  };
+
+  const getAlertIcon = (type: string) => {
+    switch (type) {
+      case "inventory":
+        return AlertCircle;
+      case "delay":
+        return Activity;
+      case "bom":
+        return Layers;
+      default:
+        return AlertCircle;
+    }
+  };
+
+  const getAlertStyles = (severity: string) => {
+    switch (severity) {
+      case "error":
+        return "bg-red-50 border-red-100 text-red-900";
+      case "warning":
+        return "bg-orange-50 border-orange-100 text-orange-900";
+      case "info":
+        return "bg-blue-50 border-blue-100 text-blue-900";
+      default:
+        return "bg-muted border-muted-foreground";
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -19,9 +65,9 @@ export default function Home() {
             <ClipboardList className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{stats.inProgressCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              先月から +2 件
+              製造中の案件数
             </p>
           </CardContent>
         </Card>
@@ -31,9 +77,9 @@ export default function Home() {
             <Activity className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
+            <div className="text-2xl font-bold">{stats.todayWorkOrdersCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              全 5 ライン稼働中
+              実行中の工程数
             </p>
           </CardContent>
         </Card>
@@ -43,9 +89,9 @@ export default function Home() {
             <Clock className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
+            <div className="text-2xl font-bold">{stats.nearDueDateCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              優先対応が必要です
+              {stats.nearDueDateCount > 0 ? "優先対応が必要です" : "問題ありません"}
             </p>
           </CardContent>
         </Card>
@@ -55,9 +101,9 @@ export default function Home() {
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24</div>
+            <div className="text-2xl font-bold">{stats.thisMonthCompletedCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              目標まであと 6 件
+              今月の完了案件数
             </p>
           </CardContent>
         </Card>
@@ -72,12 +118,32 @@ export default function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/50">
-              <div className="text-center">
-                <CalendarDays className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">ガントチャート プレビュー表示エリア</p>
+            {stats.upcomingWorkOrders.length > 0 ? (
+              <div className="space-y-2">
+                {stats.upcomingWorkOrders.map((wo) => (
+                  <div key={wo.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div>
+                      <p className="text-sm font-medium">{wo.processName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {wo.orderNo} / {wo.productName}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">
+                        {wo.plannedStartDate ? formatDate(wo.plannedStartDate) : '未設定'} 〜 {wo.plannedEndDate ? formatDate(wo.plannedEndDate) : '未設定'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/50">
+                <div className="text-center">
+                  <CalendarDays className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">今後1週間の予定はありません</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card className="col-span-3">
@@ -88,29 +154,35 @@ export default function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-4 p-3 rounded-lg border bg-orange-50 border-orange-100">
-                <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-orange-900">在庫不足: SUS304 鋼板</p>
-                  <p className="text-xs text-orange-700">有効在庫が安全在庫を下回っています (案件: SO-2026-001)</p>
-                </div>
+            {stats.alerts.length > 0 ? (
+              <div className="space-y-4">
+                {stats.alerts.map((alert, index: number) => {
+                  const Icon = getAlertIcon(alert.type);
+                  const styles = getAlertStyles(alert.severity);
+                  return (
+                    <div key={index} className={`flex items-start gap-4 p-3 rounded-lg border ${styles}`}>
+                      <Icon className="h-5 w-5 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium">{alert.title}</p>
+                        <p className="text-xs opacity-80">
+                          {alert.message}
+                          {alert.orderNo && (
+                            <Link href={`/orders/${alert.orderId}`} className="underline ml-1">
+                              ({alert.orderNo})
+                            </Link>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex items-start gap-4 p-3 rounded-lg border bg-red-50 border-red-100">
-                <Activity className="h-5 w-5 text-red-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-red-900">工程遅延: 消防ダンパー組立</p>
-                  <p className="text-xs text-red-700">予定開始日から 2 日経過しています</p>
-                </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                <p className="text-sm">アラートはありません</p>
               </div>
-              <div className="flex items-start gap-4 p-3 rounded-lg border bg-blue-50 border-blue-100">
-                <Layers className="h-5 w-5 text-blue-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-blue-900">BOM未作成: 特殊防火ダンパー</p>
-                  <p className="text-xs text-blue-700">設計部門による部品表の登録が必要です</p>
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import {
     Table,
     TableBody,
@@ -19,6 +18,11 @@ import {
 } from "@/components/ui/card";
 import { Plus, Search } from "lucide-react";
 import Link from "next/link";
+import { getOrders } from "@/app/actions/orders";
+import { formatDate } from "@/lib/utils/date";
+import { OrdersSearchClient } from "./orders-search-client";
+import { OrdersFilterClient } from "./orders-filter-client";
+import { PaginationControls } from "@/components/pagination-controls";
 
 const statusMap: Record<string, { label: string; color: string }> = {
     DRAFT: { label: "下書き", color: "bg-slate-500" },
@@ -30,37 +34,25 @@ const statusMap: Record<string, { label: string; color: string }> = {
     SHIPPED: { label: "出荷済み", color: "bg-indigo-600" },
 };
 
-export default async function OrdersPage() {
-    // 実際には Prisma から取得するが、モックデータをまずは表示
-    const orders = [
-        {
-            id: "1",
-            orderNo: "SO-2026-0001",
-            customerName: "東京研究所",
-            productName: "特殊防火ダンパー",
-            dueDate: "2026-06-30",
-            status: "IN_PRODUCTION",
-            priority: 1,
-        },
-        {
-            id: "2",
-            orderNo: "SO-2026-0002",
-            customerName: "横浜病院",
-            productName: "防煙ダンパー タイプB",
-            dueDate: "2026-07-15",
-            status: "PLANNING",
-            priority: 3,
-        },
-        {
-            id: "3",
-            orderNo: "SO-2026-0003",
-            customerName: "川崎クリーンルーム",
-            productName: "高気密ダンパー",
-            dueDate: "2026-05-20",
-            status: "BOM_REVIEW",
-            priority: 2,
-        },
-    ];
+export default async function OrdersPage({
+    searchParams,
+}: {
+    searchParams?: { search?: string; status?: string; page?: string };
+}) {
+    const search = searchParams?.search || "";
+    const status = searchParams?.status as any;
+    const page = parseInt(searchParams?.page || "1");
+
+    const result = await getOrders({
+        search,
+        status,
+        page,
+        pageSize: 20,
+    });
+
+    const orders = result.success && result.data ? result.data.orders : [];
+    const total = result.success && result.data ? result.data.total : 0;
+    const totalPages = result.success && result.data ? result.data.totalPages : 1;
 
     return (
         <div className="space-y-6">
@@ -82,58 +74,86 @@ export default async function OrdersPage() {
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <CardTitle>案件一覧</CardTitle>
-                        <div className="relative w-72">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="検索 (案件番号、顧客名...)" className="pl-8" />
+                        <div className="flex items-center gap-4">
+                            <OrdersFilterClient initialStatus={status} />
+                            <OrdersSearchClient initialSearch={search} />
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>案件番号</TableHead>
-                                <TableHead>顧客名</TableHead>
-                                <TableHead>製品名</TableHead>
-                                <TableHead>納期</TableHead>
-                                <TableHead>ステータス</TableHead>
-                                <TableHead>優先度</TableHead>
-                                <TableHead className="text-right">操作</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {orders.map((order) => (
-                                <TableRow key={order.id}>
-                                    <TableCell className="font-medium text-primary">
-                                        <Link href={`/orders/${order.id}`} className="hover:underline">
-                                            {order.orderNo}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell>{order.customerName}</TableCell>
-                                    <TableCell>{order.productName}</TableCell>
-                                    <TableCell>{order.dueDate}</TableCell>
-                                    <TableCell>
-                                        <Badge className={statusMap[order.status].color}>
-                                            {statusMap[order.status].label}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <span className={`
-                      px-2 py-0.5 rounded-full text-xs font-bold
-                      ${order.priority === 1 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}
-                    `}>
-                                            P{order.priority}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" asChild>
-                                            <Link href={`/orders/${order.id}`}>詳細</Link>
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                    {orders.length > 0 ? (
+                        <>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>案件番号</TableHead>
+                                        <TableHead>顧客名</TableHead>
+                                        <TableHead>製品名</TableHead>
+                                        <TableHead>納期</TableHead>
+                                        <TableHead>ステータス</TableHead>
+                                        <TableHead>優先度</TableHead>
+                                        <TableHead className="text-right">操作</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {orders.map((order: any) => (
+                                        <TableRow key={order.id}>
+                                            <TableCell className="font-medium text-primary">
+                                                <Link href={`/orders/${order.id}`} className="hover:underline">
+                                                    {order.orderNo}
+                                                </Link>
+                                            </TableCell>
+                                            <TableCell>{order.customerName}</TableCell>
+                                            <TableCell>{order.productName}</TableCell>
+                                            <TableCell>{formatDate(order.dueDate)}</TableCell>
+                                            <TableCell>
+                                                <Badge className={statusMap[order.status]?.color || "bg-slate-500"}>
+                                                    {statusMap[order.status]?.label || order.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className={`
+                                                    px-2 py-0.5 rounded-full text-xs font-bold
+                                                    ${order.priority === 1 ? 'bg-red-100 text-red-700' : 
+                                                      order.priority === 2 ? 'bg-orange-100 text-orange-700' : 
+                                                      'bg-slate-100 text-slate-700'}
+                                                `}>
+                                                    P{order.priority}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="sm" asChild>
+                                                    <Link href={`/orders/${order.id}`}>詳細</Link>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                            {totalPages > 1 && (
+                                <div className="mt-6 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm text-muted-foreground">
+                                            全 {total} 件中 {((page - 1) * 20) + 1} - {Math.min(page * 20, total)} 件を表示
+                                        </p>
+                                    </div>
+                                    <PaginationControls
+                                        currentPage={page}
+                                        totalPages={totalPages}
+                                        baseUrl="/orders"
+                                        searchParams={{
+                                            ...(search && { search }),
+                                            ...(status && { status }),
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <p>案件が見つかりませんでした</p>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import {
     Card,
@@ -15,9 +14,16 @@ import {
     Layers,
     CalendarDays,
     Activity,
-    FileText
+    FileText,
+    Edit
 } from "lucide-react";
 import Link from "next/link";
+import { getOrderById } from "@/app/actions/orders";
+import { getWorkOrdersByOrderId } from "@/app/actions/schedule";
+import { getWorkResultsByOrderId } from "@/app/actions/results";
+import { formatDate, formatDateTime } from "@/lib/utils/date";
+import { calculateProgress } from "@/lib/utils/calculations";
+import { WorkOrderStatus } from "@prisma/client";
 
 const statusMap: Record<string, { label: string; color: string }> = {
     DRAFT: { label: "下書き", color: "bg-slate-500" },
@@ -29,22 +35,30 @@ const statusMap: Record<string, { label: string; color: string }> = {
     SHIPPED: { label: "出荷済み", color: "bg-indigo-600" },
 };
 
-export default async function OrderDetailPage({ params }: { params: { id: string } }) {
-    // モックデータ（本来は Prisma から取得）
-    const order = {
-        id: params.id,
-        orderNo: "SO-2026-0001",
-        customerName: "東京研究所",
-        productName: "特殊防火ダンパー",
-        productSpec: "被爆実験棟用、耐熱強化仕様、手動/自動切替機能付",
-        orderedDate: "2026-04-01",
-        dueDate: "2026-06-30",
-        status: "IN_PRODUCTION",
-        estimatedPrice: 5000000,
-        priority: 1,
-    };
+const workOrderStatusMap: Record<string, { label: string; color: string; icon: string }> = {
+    PLANNED: { label: "未着手", color: "opacity-50", icon: "text-muted-foreground" },
+    READY: { label: "準備完了", color: "bg-blue-50 border-blue-200", icon: "text-blue-500" },
+    IN_PROGRESS: { label: "実行中", color: "bg-blue-50 border-blue-200", icon: "text-blue-500 animate-pulse" },
+    COMPLETED: { label: "完了", color: "bg-muted/30", icon: "text-emerald-500" },
+    SUSPENDED: { label: "中断", color: "bg-orange-50 border-orange-200", icon: "text-orange-500" },
+};
 
-    if (!order) notFound();
+export default async function OrderDetailPage({ params }: { params: { id: string } }) {
+    const [orderResult, workOrdersResult, resultsResult] = await Promise.all([
+        getOrderById(params.id),
+        getWorkOrdersByOrderId(params.id),
+        getWorkResultsByOrderId(params.id),
+    ]);
+
+    if (!orderResult.success || !orderResult.data) {
+        notFound();
+    }
+
+    const order = orderResult.data;
+    const workOrders = workOrdersResult.success && workOrdersResult.data ? workOrdersResult.data : [];
+    const results = resultsResult.success && resultsResult.data ? resultsResult.data : [];
+
+    const progress = calculateProgress(workOrders);
 
     return (
         <div className="space-y-6">
@@ -63,15 +77,22 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                     </div>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
-                    <Badge className={statusMap[order.status].color}>
-                        {statusMap[order.status].label}
+                    <Badge className={statusMap[order.status]?.color || "bg-slate-500"}>
+                        {statusMap[order.status]?.label || order.status}
                     </Badge>
                     <span className={`
-            px-2 py-0.5 rounded-full text-xs font-bold
-            ${order.priority === 1 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}
-          `}>
+                        px-2 py-0.5 rounded-full text-xs font-bold
+                        ${order.priority === 1 ? 'bg-red-100 text-red-700' : 
+                          order.priority === 2 ? 'bg-orange-100 text-orange-700' : 
+                          'bg-slate-100 text-slate-700'}
+                    `}>
                         P{order.priority}
                     </span>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={`/orders/${order.id}/edit`}>
+                            <Edit className="mr-2 h-4 w-4" /> 編集
+                        </Link>
+                    </Button>
                 </div>
             </div>
 
@@ -83,16 +104,18 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                     <CardContent className="grid gap-4 md:grid-cols-2">
                         <div>
                             <p className="text-sm font-medium text-muted-foreground">受注日</p>
-                            <p>{order.orderedDate}</p>
+                            <p>{formatDate(order.orderedDate)}</p>
                         </div>
                         <div>
                             <p className="text-sm font-medium text-muted-foreground">納期</p>
-                            <p className="font-bold text-orange-600">{order.dueDate}</p>
+                            <p className="font-bold text-orange-600">{formatDate(order.dueDate)}</p>
                         </div>
-                        <div className="md:col-span-2 border-t pt-4">
-                            <p className="text-sm font-medium text-muted-foreground">製品仕様・特記事項</p>
-                            <p className="mt-1">{order.productSpec}</p>
-                        </div>
+                        {order.productSpec && (
+                            <div className="md:col-span-2 border-t pt-4">
+                                <p className="text-sm font-medium text-muted-foreground">製品仕様・特記事項</p>
+                                <p className="mt-1">{order.productSpec}</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -103,7 +126,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                     <CardContent className="space-y-4">
                         <div>
                             <p className="text-sm font-medium text-muted-foreground">見積金額</p>
-                            <p className="text-2xl font-bold">¥{order.estimatedPrice.toLocaleString()}</p>
+                            <p className="text-2xl font-bold">¥{Number(order.estimatedPrice).toLocaleString()}</p>
                         </div>
                         <div className="pt-4 border-t space-y-2">
                             <Button className="w-full justify-start" variant="outline" asChild>
@@ -116,7 +139,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                     <CalendarDays className="mr-2 h-4 w-4" /> 日程管理を表示
                                 </Link>
                             </Button>
-                            <Button className="w-full justify-start" variant="outline">
+                            <Button className="w-full justify-start" variant="outline" disabled>
                                 <FileText className="mr-2 h-4 w-4" /> 生産指示書 PDF 出力
                             </Button>
                         </div>
@@ -135,41 +158,51 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                             <CardTitle className="text-sm font-medium">現在の工程進捗</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-4">
-                                <div className="relative pt-1">
-                                    <div className="flex mb-2 items-center justify-between text-xs">
-                                        <div>全 5 工程中 2 工程完了</div>
-                                        <div className="text-right font-bold text-primary">40%</div>
+                            {workOrders.length > 0 ? (
+                                <div className="space-y-4">
+                                    <div className="relative pt-1">
+                                        <div className="flex mb-2 items-center justify-between text-xs">
+                                            <div>全 {workOrders.length} 工程中 {workOrders.filter((wo: any) => wo.status === 'COMPLETED').length} 工程完了</div>
+                                            <div className="text-right font-bold text-primary">{progress}%</div>
+                                        </div>
+                                        <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-muted">
+                                            <div 
+                                                style={{ width: `${progress}%` }} 
+                                                className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary"
+                                            ></div>
+                                        </div>
                                     </div>
-                                    <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-muted">
-                                        <div style={{ width: "40%" }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary"></div>
-                                    </div>
-                                </div>
 
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                                        <Activity className="h-5 w-5 text-emerald-500" />
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium">板金加工 (完了)</p>
-                                            <p className="text-xs text-muted-foreground">2026-04-10 完了</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-blue-50 border-blue-200">
-                                        <Activity className="h-5 w-5 text-blue-500 animate-pulse" />
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium">溶接工作 (実行中)</p>
-                                            <p className="text-xs text-muted-foreground">担当: 溶接班A / 予定: 2026-04-12 〜 2026-04-15</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 p-3 rounded-lg border opacity-50">
-                                        <Activity className="h-5 w-5 text-muted-foreground" />
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium">組立工程 (未着手)</p>
-                                            <p className="text-xs text-muted-foreground">予定: 2026-04-16 〜 2026-04-20</p>
-                                        </div>
+                                    <div className="space-y-3">
+                                        {workOrders.map((wo: any) => {
+                                            const statusInfo = workOrderStatusMap[wo.status] || workOrderStatusMap.PLANNED;
+                                            return (
+                                                <div 
+                                                    key={wo.id} 
+                                                    className={`flex items-center gap-3 p-3 rounded-lg border ${statusInfo.color}`}
+                                                >
+                                                    <Activity className={`h-5 w-5 ${statusInfo.icon}`} />
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-medium">
+                                                            {wo.processName} ({statusInfo.label})
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {wo.actualStartDate 
+                                                                ? `開始: ${formatDate(wo.actualStartDate)}` 
+                                                                : `予定: ${formatDate(wo.plannedStartDate)} 〜 ${formatDate(wo.plannedEndDate)}`}
+                                                            {wo.actualEndDate && ` / 完了: ${formatDate(wo.actualEndDate)}`}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground text-center py-8">
+                                    工程データがありません
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -179,9 +212,30 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                             <CardTitle className="text-sm font-medium">作業実績履歴</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-muted-foreground text-center py-8">
-                                まだ実績データがありません
-                            </p>
+                            {results.length > 0 ? (
+                                <div className="space-y-3">
+                                    {results.map((result: any) => (
+                                        <div key={result.id} className="flex items-center justify-between p-3 rounded-lg border">
+                                            <div>
+                                                <p className="text-sm font-medium">
+                                                    {formatDate(result.workDate)} - {formatDateTime(result.startTime)} 〜 {formatDateTime(result.endTime)}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    実績: {Number(result.quantity).toLocaleString()}個
+                                                    {Number(result.defectQuantity) > 0 && ` / 不良: ${Number(result.defectQuantity).toLocaleString()}個`}
+                                                </p>
+                                                {result.remarks && (
+                                                    <p className="text-xs text-muted-foreground mt-1">{result.remarks}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground text-center py-8">
+                                    まだ実績データがありません
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>
