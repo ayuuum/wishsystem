@@ -13,7 +13,7 @@ const inventoryRepo = RepositoryFactory.getInventoryRepository();
 /**
  * ダッシュボードの統計データを取得
  */
-export async function getDashboardStats(): Promise<ActionResult> {
+export async function getDashboardStats(): Promise<ActionResult<any>> {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -143,6 +143,6 @@ export async function getDashboardStats(): Promise<ActionResult> {
       upcomingWorkOrders,
     });
   } catch (error) {
-    return handlePrismaError(error) as ActionResult<any>;
+    return handlePrismaError(error);
   }
 }

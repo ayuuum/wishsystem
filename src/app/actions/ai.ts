@@ -21,7 +21,7 @@ export async function predictProcessTimeAction(
 ): Promise<ActionResult<{ predictedHours: number | null; averageHours: number | null; dataCount: number }>> {
   try {
     if (!processName) {
-      return createValidationError("processName", "工程名が必要です") as ActionResult<{ predictedHours: number | null; averageHours: number | null; dataCount: number }>;
+      return createValidationError("processName", "工程名が必要です");
     }
 
     // 過去の実績データを取得
@@ -96,13 +96,13 @@ export async function suggestBomFromSimilarOrders(
 }>>> {
   try {
     if (!orderId) {
-      return createValidationError("orderId", "案件IDが必要です") as any;
+      return createValidationError("orderId", "案件IDが必要です");
     }
 
     // 現在の案件を取得
     const currentOrder = await orderRepo.findById(orderId);
     if (!currentOrder) {
-      return createValidationError("orderId", "案件が見つかりません") as any;
+      return createValidationError("orderId", "案件が見つかりません");
     }
 
     // 類似案件を検索

@@ -24,7 +24,7 @@ import { useRouter, useParams } from "next/navigation";
 export default function OrderSchedulePage() {
     const router = useRouter();
     const params = useParams();
-    const orderId = params?.id as string | undefined;
+    const orderId = typeof params?.id === 'string' ? params.id : undefined;
     
     // #region agent log
     fetch('http://127.0.0.1:7245/ingest/522b9dd6-62bf-43dc-a4fb-fcba4c30eae5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'schedule/page.tsx:30',message:'OrderSchedulePage component initialized',data:{orderId,params:params?JSON.stringify(params):'undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
@@ -54,6 +54,8 @@ export default function OrderSchedulePage() {
         // #region agent log
         fetch('http://127.0.0.1:7245/ingest/522b9dd6-62bf-43dc-a4fb-fcba4c30eae5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'schedule/page.tsx:35',message:'loadData called',data:{orderId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
+        
+        if (!orderId) return;
         
         setIsLoading(true);
         try {

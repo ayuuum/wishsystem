@@ -11,14 +11,26 @@ const inventoryRepo = RepositoryFactory.getInventoryRepository();
 /**
  * 在庫一覧を取得
  */
-export async function getInventoryItems(params: GetInventoryParams = {}): Promise<ActionResult> {
+export async function getInventoryItems(params: GetInventoryParams = {}): Promise<ActionResult<any[]>> {
   try {
     const items = await inventoryRepo.findMany({
       search: params.search,
       lowStock: params.lowStock,
     });
 
-    return createSuccessResult(items);
+    const serializedItems = items.map((item: any) => ({
+      ...item,
+      stockQuantity: Number(item.stockQuantity),
+      allocatedQuantity: Number(item.allocatedQuantity),
+      availableQuantity: Number(item.availableQuantity),
+      safetyStock: Number(item.safetyStock),
+      item: item.item ? {
+        ...item.item,
+        standardCost: Number(item.item.standardCost)
+      } : undefined
+    }));
+
+    return createSuccessResult(serializedItems);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -27,7 +39,7 @@ export async function getInventoryItems(params: GetInventoryParams = {}): Promis
 /**
  * 在庫詳細を取得
  */
-export async function getInventoryById(id: string): Promise<ActionResult> {
+export async function getInventoryById(id: string): Promise<ActionResult<any>> {
   try {
     if (!id) {
       return createValidationError("id", "在庫IDが必要です");
@@ -39,7 +51,19 @@ export async function getInventoryById(id: string): Promise<ActionResult> {
       return createErrorResult("在庫が見つかりませんでした", "NOT_FOUND");
     }
 
-    return createSuccessResult(inventory);
+    const serializedInventory = {
+      ...inventory,
+      stockQuantity: Number((inventory as any).stockQuantity),
+      allocatedQuantity: Number((inventory as any).allocatedQuantity),
+      availableQuantity: Number((inventory as any).availableQuantity),
+      safetyStock: Number((inventory as any).safetyStock),
+      item: (inventory as any).item ? {
+        ...(inventory as any).item,
+        standardCost: Number((inventory as any).item.standardCost)
+      } : undefined
+    };
+
+    return createSuccessResult(serializedInventory);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -48,7 +72,7 @@ export async function getInventoryById(id: string): Promise<ActionResult> {
 /**
  * 在庫統計を取得
  */
-export async function getInventoryStats(): Promise<ActionResult> {
+export async function getInventoryStats(): Promise<ActionResult<any>> {
   try {
     const stats = await inventoryRepo.getStats();
     return createSuccessResult(stats);
@@ -61,7 +85,7 @@ export async function getInventoryStats(): Promise<ActionResult> {
  * 在庫を同期（既存システムとの同期モック実装）
  * 実際の実装では、既存システムのAPIを呼び出すか、CSVファイルを読み込む
  */
-export async function syncInventory(): Promise<ActionResult> {
+export async function syncInventory(): Promise<ActionResult<any>> {
   try {
     // 全在庫アイテムを取得
     const items = await inventoryRepo.findMany();
@@ -102,7 +126,7 @@ export async function syncInventory(): Promise<ActionResult> {
 /**
  * 案件の部品構成に基づき在庫を引き当てる
  */
-export async function allocateInventoryForOrder(orderId: string): Promise<ActionResult> {
+export async function allocateInventoryForOrder(orderId: string): Promise<ActionResult<null>> {
   try {
     if (!orderId) {
       return createValidationError("orderId", "案件IDが必要です");
@@ -141,7 +165,7 @@ export async function allocateInventoryForOrder(orderId: string): Promise<Action
 /**
  * 案件の完了に伴い、引き当てていた在庫を実際に消費（減算）する
  */
-export async function consumeInventoryForOrder(orderId: string): Promise<ActionResult> {
+export async function consumeInventoryForOrder(orderId: string): Promise<ActionResult<null>> {
   try {
     if (!orderId) {
       return createValidationError("orderId", "案件IDが必要です");
@@ -181,7 +205,7 @@ export async function consumeInventoryForOrder(orderId: string): Promise<ActionR
 /**
  * 在庫の引き当てをキャンセル（元に戻す）
  */
-export async function revertInventoryAllocation(orderId: string): Promise<ActionResult> {
+export async function revertInventoryAllocation(orderId: string): Promise<ActionResult<null>> {
   try {
     if (!orderId) {
       return createValidationError("orderId", "案件IDが必要です");

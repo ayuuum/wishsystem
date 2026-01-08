@@ -35,11 +35,16 @@ import { isLowStock } from "@/lib/utils/calculations";
 export default function InventoryPage() {
     const [search, setSearch] = useState("");
     const [inventoryItems, setInventoryItems] = useState<any[]>([]);
-    const [stats, setStats] = useState({
+    const [stats, setStats] = useState<{
+        totalItems: number;
+        lowStockCount: number;
+        totalAllocated: number;
+        lastSyncedAt: Date | null;
+    }>({
         totalItems: 0,
         lowStockCount: 0,
         totalAllocated: 0,
-        lastSyncedAt: new Date(),
+        lastSyncedAt: null,
     });
     const [isLoading, setIsLoading] = useState(true);
     const [isPending, startTransition] = useTransition();
@@ -52,12 +57,15 @@ export default function InventoryPage() {
                 getInventoryStats(),
             ]);
 
-            if (itemsResult.success && itemsResult.data) {
+            if (itemsResult.success && Array.isArray(itemsResult.data)) {
                 setInventoryItems(itemsResult.data);
             }
             if (statsResult.success && statsResult.data) {
+                const data = statsResult.data as any;
                 setStats({
-                    ...statsResult.data,
+                    totalItems: data.totalItems || 0,
+                    lowStockCount: data.lowStockCount || 0,
+                    totalAllocated: data.totalAllocated || 0,
                     lastSyncedAt: new Date(),
                 });
             }
@@ -89,7 +97,7 @@ export default function InventoryPage() {
                     <p className="text-muted-foreground">部品の現在庫・引当状況を確認し、欠品リスクを管理します</p>
                 </div>
                 <Button variant="outline" onClick={handleSync} disabled={isPending}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} /> 
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
                     既存システムと同期
                 </Button>
             </div>
@@ -136,9 +144,11 @@ export default function InventoryPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-sm font-medium">
-                            {stats.lastSyncedAt.toLocaleTimeString('ja-JP')} に同期完了
+                            {stats.lastSyncedAt ? `${stats.lastSyncedAt.toLocaleTimeString('ja-JP')} に同期完了` : '同期待ち'}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1 text-primary">正常</p>
+                        <p className="text-xs text-muted-foreground mt-1 text-primary">
+                            {stats.lastSyncedAt ? '正常' : '-'}
+                        </p>
                     </CardContent>
                 </Card>
             </div>

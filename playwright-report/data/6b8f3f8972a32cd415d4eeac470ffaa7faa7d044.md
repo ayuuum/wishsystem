@@ -1,0 +1,118 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - img [ref=e9]
+          - generic [ref=e13]: 三功工業所
+        - paragraph [ref=e14]: 製造管理システム
+      - generic [ref=e16]:
+        - generic [ref=e17]: メニュー
+        - list [ref=e19]:
+          - listitem [ref=e20]:
+            - link "ダッシュボード" [ref=e21] [cursor=pointer]:
+              - /url: /
+              - img [ref=e22]
+              - generic [ref=e27]: ダッシュボード
+          - listitem [ref=e28]:
+            - link "案件管理" [ref=e29] [cursor=pointer]:
+              - /url: /orders
+              - img [ref=e30]
+              - generic [ref=e33]: 案件管理
+          - listitem [ref=e34]:
+            - link "BOM管理" [ref=e35] [cursor=pointer]:
+              - /url: /bom
+              - img [ref=e36]
+              - generic [ref=e40]: BOM管理
+          - listitem [ref=e41]:
+            - link "日程管理 (ガント)" [ref=e42] [cursor=pointer]:
+              - /url: /schedule
+              - img [ref=e43]
+              - generic [ref=e45]: 日程管理 (ガント)
+          - listitem [ref=e46]:
+            - link "製造実績" [ref=e47] [cursor=pointer]:
+              - /url: /results
+              - img [ref=e48]
+              - generic [ref=e50]: 製造実績
+          - listitem [ref=e51]:
+            - link "在庫管理" [ref=e52] [cursor=pointer]:
+              - /url: /inventory
+              - img [ref=e53]
+              - generic [ref=e57]: 在庫管理
+      - list [ref=e59]:
+        - listitem [ref=e60]:
+          - link "設定" [ref=e61] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e62]
+            - generic [ref=e65]: 設定
+    - main [ref=e66]:
+      - generic [ref=e67]:
+        - button "Toggle Sidebar" [ref=e68]:
+          - img
+          - generic [ref=e69]: Toggle Sidebar
+        - heading "製造管理システム" [level=1] [ref=e71]
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - link [ref=e75] [cursor=pointer]:
+            - /url: /orders
+            - img
+          - generic [ref=e76]:
+            - 'heading "案件詳細: TEST-ORDER-8331" [level=2] [ref=e77]'
+            - generic [ref=e78]:
+              - generic [ref=e79]: E2E Testing Corp
+              - generic [ref=e80]: /
+              - generic [ref=e81]: E2E Test Product
+          - generic [ref=e82]:
+            - generic [ref=e83]: 下書き
+            - generic [ref=e84]: P2
+            - link "編集" [ref=e85] [cursor=pointer]:
+              - /url: /orders/cmk58lk9a000012yrxbu2cy5z/edit
+              - img
+              - text: 編集
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - generic [ref=e89]: 基本情報
+            - generic [ref=e90]:
+              - generic [ref=e91]:
+                - paragraph [ref=e92]: 受注日
+                - paragraph [ref=e93]: 2026-01-08
+              - generic [ref=e94]:
+                - paragraph [ref=e95]: 納期
+                - paragraph [ref=e96]: 2026-02-07
+              - generic [ref=e97]:
+                - paragraph [ref=e98]: 製品仕様・特記事項
+                - paragraph [ref=e99]: A product created by E2E tests
+          - generic [ref=e100]:
+            - generic [ref=e102]: 見積・管理
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - paragraph [ref=e105]: 見積金額
+                - paragraph [ref=e106]: ¥1,000,000
+              - generic [ref=e107]:
+                - link "部品構成 (BOM) を表示" [ref=e108] [cursor=pointer]:
+                  - /url: /orders/cmk58lk9a000012yrxbu2cy5z/bom
+                  - img
+                  - text: 部品構成 (BOM) を表示
+                - link "日程管理を表示" [ref=e109] [cursor=pointer]:
+                  - /url: /orders/cmk58lk9a000012yrxbu2cy5z/schedule
+                  - img
+                  - text: 日程管理を表示
+                - button "生産指示書 PDF 出力" [ref=e110]:
+                  - img
+                  - text: 生産指示書 PDF 出力
+        - generic [ref=e111]:
+          - tablist [ref=e112]:
+            - tab "製造進捗" [selected] [ref=e113]
+            - tab "実績履歴" [ref=e114]
+          - tabpanel "製造進捗" [ref=e115]:
+            - generic [ref=e116]:
+              - generic [ref=e118]: 現在の工程進捗
+              - paragraph [ref=e120]: 工程データがありません
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e126] [cursor=pointer]:
+    - img [ref=e127]
+  - alert [ref=e130]
+```

@@ -10,7 +10,7 @@ const workResultRepo = RepositoryFactory.getWorkResultRepository();
 /**
  * 製造実績を登録
  */
-export async function createWorkResult(input: CreateWorkResultInput): Promise<ActionResult> {
+export async function createWorkResult(input: CreateWorkResultInput): Promise<ActionResult<any>> {
   try {
     // バリデーション
     if (!input.workOrderId) {
@@ -103,7 +103,13 @@ export async function createWorkResult(input: CreateWorkResultInput): Promise<Ac
       }
     }
 
-    return createSuccessResult(workResult);
+    const serializedResult = {
+      ...workResult,
+      quantity: Number(workResult.quantity),
+      defectQuantity: Number(workResult.defectQuantity)
+    };
+
+    return createSuccessResult(serializedResult);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -112,14 +118,19 @@ export async function createWorkResult(input: CreateWorkResultInput): Promise<Ac
 /**
  * 案件の実績一覧を取得
  */
-export async function getWorkResultsByOrderId(orderId: string): Promise<ActionResult> {
+export async function getWorkResultsByOrderId(orderId: string): Promise<ActionResult<any[]>> {
   try {
     if (!orderId) {
       return createValidationError("orderId", "案件IDが必要です");
     }
 
     const results = await workResultRepo.findByOrderId(orderId);
-    return createSuccessResult(results);
+    const serializedResults = results.map((r: any) => ({
+      ...r,
+      quantity: Number(r.quantity),
+      defectQuantity: Number(r.defectQuantity)
+    }));
+    return createSuccessResult(serializedResults);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -128,14 +139,19 @@ export async function getWorkResultsByOrderId(orderId: string): Promise<ActionRe
 /**
  * 作業指示の実績一覧を取得
  */
-export async function getWorkResultsByWorkOrderId(workOrderId: string): Promise<ActionResult> {
+export async function getWorkResultsByWorkOrderId(workOrderId: string): Promise<ActionResult<any[]>> {
   try {
     if (!workOrderId) {
       return createValidationError("workOrderId", "作業指示IDが必要です");
     }
 
     const results = await workResultRepo.findByWorkOrderId(workOrderId);
-    return createSuccessResult(results);
+    const serializedResults = results.map((r: any) => ({
+      ...r,
+      quantity: Number(r.quantity),
+      defectQuantity: Number(r.defectQuantity)
+    }));
+    return createSuccessResult(serializedResults);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -144,10 +160,15 @@ export async function getWorkResultsByWorkOrderId(workOrderId: string): Promise<
 /**
  * 本日の実績を取得
  */
-export async function getTodayResults(): Promise<ActionResult> {
+export async function getTodayResults(): Promise<ActionResult<any[]>> {
   try {
     const results = await workResultRepo.findToday();
-    return createSuccessResult(results);
+    const serializedResults = results.map((r: any) => ({
+      ...r,
+      quantity: Number(r.quantity),
+      defectQuantity: Number(r.defectQuantity)
+    }));
+    return createSuccessResult(serializedResults);
   } catch (error) {
     return handlePrismaError(error);
   }

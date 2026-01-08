@@ -147,7 +147,7 @@ export function BomTreeView({
 export default function OrderBomPage() {
     const router = useRouter();
     const params = useParams();
-    const orderId = params?.id as string | undefined;
+    const orderId = typeof params?.id === 'string' ? params.id : undefined;
     
     // #region agent log
     fetch('http://127.0.0.1:7245/ingest/522b9dd6-62bf-43dc-a4fb-fcba4c30eae5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bom/page.tsx:147',message:'OrderBomPage component initialized',data:{orderId,params:params?JSON.stringify(params):'undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
@@ -170,7 +170,7 @@ export default function OrderBomPage() {
         // #endregion
         
         if (orderId) {
-            loadData();
+            loadData(orderId);
         } else {
             // #region agent log
             fetch('http://127.0.0.1:7245/ingest/522b9dd6-62bf-43dc-a4fb-fcba4c30eae5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bom/page.tsx:165',message:'orderId is undefined',data:{params:params?JSON.stringify(params):'undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
@@ -179,7 +179,7 @@ export default function OrderBomPage() {
         }
     }, [orderId]);
 
-    const loadData = async () => {
+    const loadData = async (orderId: string) => {
         // #region agent log
         fetch('http://127.0.0.1:7245/ingest/522b9dd6-62bf-43dc-a4fb-fcba4c30eae5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bom/page.tsx:161',message:'loadData called',data:{orderId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
@@ -218,7 +218,7 @@ export default function OrderBomPage() {
         const result = await deleteBomItem(id);
         if (result.success) {
             toast.success("BOMアイテムを削除しました");
-            await loadData();
+            if (orderId) await loadData(orderId);
         } else {
             toast.error(result.error?.message || "削除に失敗しました");
         }
@@ -241,6 +241,7 @@ export default function OrderBomPage() {
             return;
         }
 
+        if (!orderId) return;
         const result = await approveBom(orderId);
         if (result.success) {
             toast.success("BOMを承認しました");
@@ -319,7 +320,7 @@ export default function OrderBomPage() {
                                     items={filteredItems} 
                                     onDelete={handleDelete} 
                                     onEdit={handleEdit}
-                                    orderId={params.id}
+                                    orderId={orderId}
                                 />
                             </div>
                         ) : (
@@ -367,21 +368,25 @@ export default function OrderBomPage() {
                 </Card>
             </div>
 
-            <BomItemDialog
-                open={dialogOpen}
-                onOpenChange={setDialogOpen}
-                orderId={orderId}
-                bomItem={editingItem || undefined}
-                parentBomId={addingParentId}
-                level={editingItem ? editingItem.level : (addingParentId ? 1 : 0)}
-                onSuccess={loadData}
-            />
-            <BomSuggestionDialog
-                open={suggestionDialogOpen}
-                onOpenChange={setSuggestionDialogOpen}
-                orderId={orderId}
-                onSuccess={loadData}
-            />
+            {orderId && (
+                <>
+                    <BomItemDialog
+                        open={dialogOpen}
+                        onOpenChange={setDialogOpen}
+                        orderId={orderId}
+                        bomItem={editingItem || undefined}
+                        parentBomId={addingParentId}
+                        level={editingItem ? editingItem.level : (addingParentId ? 1 : 0)}
+                        onSuccess={() => { if (orderId) loadData(orderId); }}
+                    />
+                    <BomSuggestionDialog
+                        open={suggestionDialogOpen}
+                        onOpenChange={setSuggestionDialogOpen}
+                        orderId={orderId}
+                        onSuccess={() => { if (orderId) loadData(orderId); }}
+                    />
+                </>
+            )}
         </div>
     );
 }

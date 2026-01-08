@@ -51,7 +51,7 @@ export function createErrorResult(
   message: string,
   code?: string,
   field?: string
-): ActionResult {
+): ActionResult<never> {
   return {
     success: false,
     error: {
@@ -65,7 +65,7 @@ export function createErrorResult(
 /**
  * Prismaエラーを処理
  */
-export function handlePrismaError(error: any): ActionResult {
+export function handlePrismaError(error: any): ActionResult<never> {
   if (error.code === 'P2002') {
     // ユニーク制約違反
     return createErrorResult(
@@ -95,7 +95,7 @@ export function handlePrismaError(error: any): ActionResult {
 export function createValidationError(
   field: string,
   message: string
-): ActionResult {
+): ActionResult<never> {
   return createErrorResult(
     message,
     ErrorCodes.VALIDATION_ERROR,

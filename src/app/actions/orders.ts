@@ -8,6 +8,38 @@ import { OrderStatus, Prisma } from "@prisma/client";
 const orderRepo = RepositoryFactory.getOrderRepository();
 
 /**
+ * 案件オブジェクトをシリアライズ（DecimalをNumberに変換）
+ */
+function serializeOrder(order: any) {
+  if (!order) return null;
+
+  return {
+    ...order,
+    estimatedPrice: Number(order.estimatedPrice),
+    bomItems: order.bomItems ? order.bomItems.map((item: any) => ({
+      ...item,
+      quantity: Number(item.quantity),
+      unitCost: Number(item.unitCost),
+      totalCost: Number(item.totalCost),
+      item: item.item ? {
+        ...item.item,
+        standardCost: Number(item.item.standardCost)
+      } : null
+    })) : undefined,
+    workOrders: order.workOrders ? order.workOrders.map((wo: any) => ({
+      ...wo,
+      plannedQuantity: Number(wo.plannedQuantity),
+      actualQuantity: wo.actualQuantity ? Number(wo.actualQuantity) : null,
+      results: wo.results ? wo.results.map((res: any) => ({
+        ...res,
+        quantity: Number(res.quantity),
+        defectQuantity: Number(res.defectQuantity)
+      })) : undefined
+    })) : undefined
+  };
+}
+
+/**
  * 案件一覧を取得
  */
 export async function getOrders(params: GetOrdersParams = {}): Promise<ActionResult<GetOrdersResult>> {
@@ -31,21 +63,24 @@ export async function getOrders(params: GetOrdersParams = {}): Promise<ActionRes
     ]);
 
     return createSuccessResult({
-      orders,
+      orders: orders.map((o: any) => ({
+        ...o,
+        estimatedPrice: Number(o.estimatedPrice)
+      })),
       total,
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
-    return handlePrismaError(error) as ActionResult<GetOrdersResult>;
+    return handlePrismaError(error);
   }
 }
 
 /**
  * 案件詳細を取得
  */
-export async function getOrderById(id: string): Promise<ActionResult> {
+export async function getOrderById(id: string): Promise<ActionResult<any>> {
   try {
     if (!id) {
       return createValidationError("id", "案件IDが必要です");
@@ -57,7 +92,7 @@ export async function getOrderById(id: string): Promise<ActionResult> {
       return createErrorResult("案件が見つかりませんでした", "NOT_FOUND");
     }
 
-    return createSuccessResult(order);
+    return createSuccessResult(serializeOrder(order));
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -66,7 +101,7 @@ export async function getOrderById(id: string): Promise<ActionResult> {
 /**
  * 新規案件を作成
  */
-export async function createOrder(input: CreateOrderInput): Promise<ActionResult> {
+export async function createOrder(input: CreateOrderInput): Promise<ActionResult<any>> {
   try {
     // バリデーション
     if (!input.orderNo) {
@@ -108,7 +143,7 @@ export async function createOrder(input: CreateOrderInput): Promise<ActionResult
       isDeleted: false,
     });
 
-    return createSuccessResult(order);
+    return createSuccessResult(serializeOrder(order));
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -117,7 +152,7 @@ export async function createOrder(input: CreateOrderInput): Promise<ActionResult
 /**
  * 案件を更新
  */
-export async function updateOrder(id: string, input: UpdateOrderInput): Promise<ActionResult> {
+export async function updateOrder(id: string, input: UpdateOrderInput): Promise<ActionResult<any>> {
   try {
     if (!id) {
       return createValidationError("id", "案件IDが必要です");
@@ -158,7 +193,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
       await revertInventoryAllocation(id);
     }
 
-    return createSuccessResult(order);
+    return createSuccessResult(serializeOrder(order));
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -167,7 +202,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
 /**
  * 案件を削除（論理削除）
  */
-export async function deleteOrder(id: string): Promise<ActionResult> {
+export async function deleteOrder(id: string): Promise<ActionResult<null>> {
   try {
     if (!id) {
       return createValidationError("id", "案件IDが必要です");
@@ -186,4 +221,3 @@ export async function deleteOrder(id: string): Promise<ActionResult> {
     return handlePrismaError(error);
   }
 }
-

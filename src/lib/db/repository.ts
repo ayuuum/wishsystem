@@ -4,16 +4,16 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { 
-  Order, 
-  OrderBom, 
-  WorkOrder, 
-  WorkResult, 
-  Inventory, 
+import type {
+  Order,
+  OrderBom,
+  WorkOrder,
+  WorkResult,
+  Inventory,
   Item,
-  OrderStatus,
-  WorkOrderStatus 
+  OrderStatus
 } from "@prisma/client";
+import { WorkOrderStatus, Prisma } from "@prisma/client";
 
 // ==================== 型定義 ====================
 
@@ -119,7 +119,10 @@ export class PrismaOrderRepository implements IOrderRepository {
         include: {
           bomItems: {
             include: { item: true },
-            orderBy: { level: 'asc', sortOrder: 'asc' },
+            orderBy: [
+              { level: "asc" },
+              { sortOrder: "asc" }
+            ],
           },
           workOrders: {
             include: { results: true },
@@ -407,7 +410,7 @@ export class PrismaInventoryRepository implements IInventoryRepository {
         } : undefined,
         include: { item: true },
       });
-      return items.filter(item => 
+      return items.filter(item =>
         Number(item.availableQuantity) < Number(item.safetyStock)
       );
     }

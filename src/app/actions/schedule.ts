@@ -3,21 +3,31 @@
 import { RepositoryFactory } from "@/lib/db/repository";
 import { createSuccessResult, createErrorResult, handlePrismaError, createValidationError } from "@/lib/utils/errors";
 import type { ActionResult, CreateWorkOrderInput, UpdateWorkOrderInput, UpdateScheduleInput } from "@/types/actions";
-import { WorkOrderStatus } from "@prisma/client";
+import { WorkOrderStatus, Prisma } from "@prisma/client";
 
 const workOrderRepo = RepositoryFactory.getWorkOrderRepository();
 
 /**
  * 案件の作業指示一覧を取得
  */
-export async function getWorkOrdersByOrderId(orderId: string): Promise<ActionResult> {
+export async function getWorkOrdersByOrderId(orderId: string): Promise<ActionResult<any[]>> {
   try {
     if (!orderId) {
       return createValidationError("orderId", "案件IDが必要です");
     }
 
     const workOrders = await workOrderRepo.findByOrderId(orderId);
-    return createSuccessResult(workOrders);
+    const serializedWorkOrders = workOrders.map((wo: any) => ({
+      ...wo,
+      plannedQuantity: Number(wo.plannedQuantity),
+      actualQuantity: wo.actualQuantity ? Number(wo.actualQuantity) : null,
+      results: wo.results ? wo.results.map((r: any) => ({
+        ...r,
+        quantity: Number(r.quantity),
+        defectQuantity: Number(r.defectQuantity)
+      })) : undefined
+    }));
+    return createSuccessResult(serializedWorkOrders);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -26,7 +36,7 @@ export async function getWorkOrdersByOrderId(orderId: string): Promise<ActionRes
 /**
  * 作業指示を作成
  */
-export async function createWorkOrder(input: CreateWorkOrderInput): Promise<ActionResult> {
+export async function createWorkOrder(input: CreateWorkOrderInput): Promise<ActionResult<any>> {
   try {
     // バリデーション
     if (!input.orderId) {
@@ -58,13 +68,27 @@ export async function createWorkOrder(input: CreateWorkOrderInput): Promise<Acti
       processOrder: input.processOrder,
       plannedStartDate: input.plannedStartDate,
       plannedEndDate: input.plannedEndDate,
-      plannedQuantity: input.plannedQuantity,
+      plannedQuantity: new Prisma.Decimal(input.plannedQuantity),
       status: WorkOrderStatus.PLANNED,
-      predecessorId: input.predecessorId,
-      remarks: input.remarks,
+      predecessorId: input.predecessorId || null,
+      remarks: input.remarks || null,
+      actualStartDate: null,
+      actualEndDate: null,
+      actualQuantity: null,
     });
 
-    return createSuccessResult(workOrder);
+    const serializedWorkOrder = {
+      ...workOrder,
+      plannedQuantity: Number((workOrder as any).plannedQuantity),
+      actualQuantity: (workOrder as any).actualQuantity ? Number((workOrder as any).actualQuantity) : null,
+      results: (workOrder as any).results ? (workOrder as any).results.map((r: any) => ({
+        ...r,
+        quantity: Number(r.quantity),
+        defectQuantity: Number(r.defectQuantity)
+      })) : undefined
+    };
+
+    return createSuccessResult(serializedWorkOrder);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -73,7 +97,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput): Promise<Acti
 /**
  * 作業指示を更新
  */
-export async function updateWorkOrder(id: string, input: UpdateWorkOrderInput): Promise<ActionResult> {
+export async function updateWorkOrder(id: string, input: UpdateWorkOrderInput): Promise<ActionResult<any>> {
   try {
     if (!id) {
       return createValidationError("id", "作業指示IDが必要です");
@@ -98,7 +122,19 @@ export async function updateWorkOrder(id: string, input: UpdateWorkOrderInput): 
     if (input.remarks !== undefined) updateData.remarks = input.remarks;
 
     const workOrder = await workOrderRepo.update(id, updateData);
-    return createSuccessResult(workOrder);
+
+    const serializedWorkOrder = {
+      ...workOrder,
+      plannedQuantity: Number((workOrder as any).plannedQuantity),
+      actualQuantity: (workOrder as any).actualQuantity ? Number((workOrder as any).actualQuantity) : null,
+      results: (workOrder as any).results ? (workOrder as any).results.map((r: any) => ({
+        ...r,
+        quantity: Number(r.quantity),
+        defectQuantity: Number(r.defectQuantity)
+      })) : undefined
+    };
+
+    return createSuccessResult(serializedWorkOrder);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -107,7 +143,7 @@ export async function updateWorkOrder(id: string, input: UpdateWorkOrderInput): 
 /**
  * スケジュールを更新（ガントチャート用）
  */
-export async function updateWorkOrderSchedule(input: UpdateScheduleInput): Promise<ActionResult> {
+export async function updateWorkOrderSchedule(input: UpdateScheduleInput): Promise<ActionResult<any>> {
   try {
     if (!input.id) {
       return createValidationError("id", "作業指示IDが必要です");
@@ -132,7 +168,18 @@ export async function updateWorkOrderSchedule(input: UpdateScheduleInput): Promi
       input.endDate
     );
 
-    return createSuccessResult(workOrder);
+    const serializedWorkOrder = {
+      ...workOrder,
+      plannedQuantity: Number((workOrder as any).plannedQuantity),
+      actualQuantity: (workOrder as any).actualQuantity ? Number((workOrder as any).actualQuantity) : null,
+      results: (workOrder as any).results ? (workOrder as any).results.map((r: any) => ({
+        ...r,
+        quantity: Number(r.quantity),
+        defectQuantity: Number(r.defectQuantity)
+      })) : undefined
+    };
+
+    return createSuccessResult(serializedWorkOrder);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -141,7 +188,7 @@ export async function updateWorkOrderSchedule(input: UpdateScheduleInput): Promi
 /**
  * 作業指示を削除
  */
-export async function deleteWorkOrder(id: string): Promise<ActionResult> {
+export async function deleteWorkOrder(id: string): Promise<ActionResult<null>> {
   try {
     if (!id) {
       return createValidationError("id", "作業指示IDが必要です");
@@ -153,4 +200,3 @@ export async function deleteWorkOrder(id: string): Promise<ActionResult> {
     return handlePrismaError(error);
   }
 }
-

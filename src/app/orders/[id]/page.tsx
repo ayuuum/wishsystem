@@ -45,8 +45,8 @@ const workOrderStatusMap: Record<string, { label: string; color: string; icon: s
     SUSPENDED: { label: "中断", color: "bg-orange-50 border-orange-200", icon: "text-orange-500" },
 };
 
-export default async function OrderDetailPage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
 
     const [orderResult, workOrdersResult, resultsResult, bomResult] = await Promise.all([
         getOrderById(id),
@@ -55,14 +55,34 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         getBomByOrderId(id),
     ]);
 
-    if (!orderResult.success || !orderResult.data) {
+    const rawOrder = orderResult.data as any;
+    const order = rawOrder ? {
+        ...rawOrder,
+        estimatedPrice: Number(rawOrder.estimatedPrice)
+    } : null;
+
+    if (!order) {
         notFound();
     }
 
-    const order = orderResult.data as Order;
-    const workOrders = (workOrdersResult.success && workOrdersResult.data ? workOrdersResult.data : []) as WorkOrder[];
-    const results = (resultsResult.success && resultsResult.data ? resultsResult.data : []) as WorkResult[];
-    const bomItems = (bomResult.success && bomResult.data ? bomResult.data : []) as any[];
+    const workOrders = ((workOrdersResult as any).success && (workOrdersResult as any).data ? (workOrdersResult as any).data.map((wo: any) => ({
+        ...wo,
+        plannedQuantity: Number(wo.plannedQuantity),
+        actualQuantity: wo.actualQuantity ? Number(wo.actualQuantity) : null
+    })) : []) as any[];
+
+    const results = ((resultsResult as any).success && (resultsResult as any).data ? (resultsResult as any).data.map((r: any) => ({
+        ...r,
+        quantity: Number(r.quantity),
+        defectQuantity: Number(r.defectQuantity)
+    })) : []) as any[];
+
+    const bomItems = ((bomResult as any).success && (bomResult as any).data ? (bomResult as any).data.map((bi: any) => ({
+        ...bi,
+        quantity: Number(bi.quantity),
+        unitCost: Number(bi.unitCost),
+        totalCost: Number(bi.totalCost)
+    })) : []) as any[];
 
     const progress = calculateProgress(workOrders);
 

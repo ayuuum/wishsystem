@@ -27,11 +27,27 @@ import { OrderStatus } from "@prisma/client";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "@/lib/toast";
 
-export default function EditOrderPage({ params }: { params: { id: string } }) {
+import { use } from "react";
+
+export default function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        customerCode: string;
+        customerName: string;
+        productName: string;
+        productSpec: string;
+        orderedDate: string;
+        dueDate: string;
+        estimatedPrice: string;
+        status: OrderStatus;
+        priority: string;
+        salesRepId: string;
+        designerId: string;
+        productionManagerId: string;
+    }>({
         customerCode: "",
         customerName: "",
         productName: "",
@@ -48,14 +64,14 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
 
     useEffect(() => {
         loadOrder();
-    }, [params.id]);
+    }, [id]);
 
     const loadOrder = async () => {
         setIsLoading(true);
         try {
-            const result = await getOrderById(params.id);
+            const result = await getOrderById(id);
             if (result.success && result.data) {
-                const order = result.data;
+                const order = result.data as any;
                 setFormData({
                     customerCode: order.customerCode || "",
                     customerName: order.customerName || "",
@@ -87,7 +103,7 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
         setIsSubmitting(true);
 
         try {
-            const result = await updateOrder(params.id, {
+            const result = await updateOrder(id, {
                 customerCode: formData.customerCode,
                 customerName: formData.customerName,
                 productName: formData.productName,
@@ -104,7 +120,7 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
 
             if (result.success) {
                 toast.success("案件を更新しました");
-                router.push(`/orders/${params.id}`);
+                router.push(`/orders/${id}`);
             } else {
                 toast.error(result.error?.message || "案件の更新に失敗しました");
             }
@@ -128,7 +144,7 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="icon" asChild>
-                    <Link href={`/orders/${params.id}`}>
+                    <Link href={`/orders/${id}`}>
                         <ArrowLeft className="h-4 w-4" />
                     </Link>
                 </Button>
@@ -254,7 +270,7 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
                         <div className="space-y-2">
                             <Label htmlFor="status">ステータス</Label>
                             <Select
-                                value={formData.status}
+                                value={formData.status ? String(formData.status) : String(OrderStatus.DRAFT)}
                                 onValueChange={(value) => setFormData({ ...formData, status: value as OrderStatus })}
                             >
                                 <SelectTrigger id="status">
@@ -307,7 +323,7 @@ export default function EditOrderPage({ params }: { params: { id: string } }) {
 
                         <div className="flex justify-end gap-4 pt-4">
                             <Button type="button" variant="outline" asChild>
-                                <Link href={`/orders/${params.id}`}>キャンセル</Link>
+                                <Link href={`/orders/${id}`}>キャンセル</Link>
                             </Button>
                             <Button type="submit" disabled={isSubmitting}>
                                 <Save className="mr-2 h-4 w-4" />
