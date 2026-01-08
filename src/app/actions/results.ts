@@ -3,6 +3,7 @@
 import { RepositoryFactory } from "@/lib/db/repository";
 import { createSuccessResult, createErrorResult, handlePrismaError, createValidationError } from "@/lib/utils/errors";
 import type { ActionResult, CreateWorkResultInput } from "@/types/actions";
+import { Prisma, OrderStatus } from "@prisma/client";
 
 const workResultRepo = RepositoryFactory.getWorkResultRepository();
 
@@ -44,24 +45,62 @@ export async function createWorkResult(input: CreateWorkResultInput): Promise<Ac
       workDate: input.workDate,
       startTime: input.startTime,
       endTime: input.endTime,
-      quantity: input.quantity,
-      defectQuantity: input.defectQuantity || 0,
-      remarks: input.remarks,
+      quantity: new Prisma.Decimal(input.quantity),
+      defectQuantity: new Prisma.Decimal(input.defectQuantity || 0),
+      remarks: input.remarks || null,
+      approvedBy: null,
+      approvedAt: null,
     });
 
     // 作業指示の実績数量を更新
     const workOrderRepo = RepositoryFactory.getWorkOrderRepository();
+    const orderRepo = RepositoryFactory.getOrderRepository();
     const workOrder = await workOrderRepo.findById(input.workOrderId);
+
     if (workOrder) {
       const results = await workResultRepo.findByWorkOrderId(input.workOrderId);
       const totalQuantity = results.reduce((sum, r) => sum + Number(r.quantity), 0);
-      
+
+      // 作業指示のステータス決定
+      let newWorkOrderStatus = workOrder.status;
+      if (totalQuantity >= Number(workOrder.plannedQuantity)) {
+        newWorkOrderStatus = 'COMPLETED';
+      } else if (totalQuantity > 0) {
+        newWorkOrderStatus = 'IN_PROGRESS';
+      }
+
       await workOrderRepo.update(input.workOrderId, {
-        actualQuantity: totalQuantity,
+        actualQuantity: new Prisma.Decimal(totalQuantity),
         actualStartDate: workOrder.actualStartDate || start,
         actualEndDate: end,
-        status: workOrder.status === 'PLANNED' ? 'IN_PROGRESS' : workOrder.status,
+        status: newWorkOrderStatus as any,
       });
+
+      // 案件全体のステータス連携
+      const orderId = workOrder.orderId;
+      const allWorkOrders = await workOrderRepo.findByOrderId(orderId);
+      const allCompleted = allWorkOrders.every(wo => wo.status === 'COMPLETED');
+      const anyStarted = allWorkOrders.some(wo => wo.status === 'IN_PROGRESS' || wo.status === 'COMPLETED');
+
+      const currentOrder = await orderRepo.findById(orderId);
+      if (currentOrder) {
+        let newOrderStatus = currentOrder.status;
+        if (allCompleted) {
+          newOrderStatus = OrderStatus.COMPLETED;
+        } else if (anyStarted && (currentOrder.status === OrderStatus.PLANNING || currentOrder.status === OrderStatus.BOM_REVIEW)) {
+          newOrderStatus = OrderStatus.IN_PRODUCTION;
+        }
+
+        if (newOrderStatus !== currentOrder.status) {
+          await orderRepo.update(orderId, { status: newOrderStatus as any });
+
+          // 案件が完了した場合、在庫を実際に消費する
+          if (newOrderStatus === OrderStatus.COMPLETED) {
+            const { consumeInventoryForOrder } = await import("./inventory");
+            await consumeInventoryForOrder(orderId);
+          }
+        }
+      }
     }
 
     return createSuccessResult(workResult);

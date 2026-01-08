@@ -14,7 +14,13 @@ interface Task {
     custom_class?: string;
 }
 
-export function GanttChart({ tasks }: { tasks: Task[] }) {
+export function GanttChart({
+    tasks,
+    onDateChange
+}: {
+    tasks: Task[],
+    onDateChange?: (task: any, start: Date, end: Date) => void
+}) {
     const ganttRef = useRef<SVGSVGElement>(null);
 
     useEffect(() => {
@@ -22,7 +28,9 @@ export function GanttChart({ tasks }: { tasks: Task[] }) {
             new Gantt(ganttRef.current, tasks, {
                 on_click: (task: any) => console.log(task),
                 on_date_change: (task: any, start: any, end: any) => {
-                    console.log(task, start, end);
+                    if (onDateChange) {
+                        onDateChange(task, new Date(start), new Date(end));
+                    }
                 },
                 on_progress_change: (task: any, progress: any) => {
                     console.log(task, progress);
@@ -34,7 +42,7 @@ export function GanttChart({ tasks }: { tasks: Task[] }) {
                 language: 'jp',
             });
         }
-    }, [tasks]);
+    }, [tasks, onDateChange]);
 
     return <svg ref={ganttRef}></svg>;
 }

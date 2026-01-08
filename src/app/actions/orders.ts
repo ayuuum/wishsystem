@@ -3,7 +3,7 @@
 import { RepositoryFactory } from "@/lib/db/repository";
 import { createSuccessResult, createErrorResult, handlePrismaError, createValidationError } from "@/lib/utils/errors";
 import type { ActionResult, CreateOrderInput, UpdateOrderInput, GetOrdersParams, GetOrdersResult } from "@/types/actions";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, Prisma } from "@prisma/client";
 
 const orderRepo = RepositoryFactory.getOrderRepository();
 
@@ -38,7 +38,7 @@ export async function getOrders(params: GetOrdersParams = {}): Promise<ActionRes
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
-    return handlePrismaError(error);
+    return handlePrismaError(error) as ActionResult<GetOrdersResult>;
   }
 }
 
@@ -52,7 +52,7 @@ export async function getOrderById(id: string): Promise<ActionResult> {
     }
 
     const order = await orderRepo.findById(id);
-    
+
     if (!order) {
       return createErrorResult("案件が見つかりませんでした", "NOT_FOUND");
     }
@@ -72,14 +72,23 @@ export async function createOrder(input: CreateOrderInput): Promise<ActionResult
     if (!input.orderNo) {
       return createValidationError("orderNo", "案件番号が必要です");
     }
+    if (!input.customerCode) {
+      return createValidationError("customerCode", "顧客コードが必要です");
+    }
     if (!input.customerName) {
       return createValidationError("customerName", "顧客名が必要です");
     }
     if (!input.productName) {
       return createValidationError("productName", "製品名が必要です");
     }
+    if (!input.orderedDate) {
+      return createValidationError("orderedDate", "受注日が必要です");
+    }
     if (!input.dueDate) {
       return createValidationError("dueDate", "納期が必要です");
+    }
+    if (input.estimatedPrice === undefined) {
+      return createValidationError("estimatedPrice", "見積単価が必要です");
     }
 
     const order = await orderRepo.create({
@@ -87,15 +96,15 @@ export async function createOrder(input: CreateOrderInput): Promise<ActionResult
       customerCode: input.customerCode,
       customerName: input.customerName,
       productName: input.productName,
-      productSpec: input.productSpec,
+      productSpec: input.productSpec || null,
       orderedDate: input.orderedDate,
       dueDate: input.dueDate,
-      estimatedPrice: input.estimatedPrice,
+      estimatedPrice: new Prisma.Decimal(input.estimatedPrice),
       status: input.status || OrderStatus.DRAFT,
       priority: input.priority || 3,
-      salesRepId: input.salesRepId,
-      designerId: input.designerId,
-      productionManagerId: input.productionManagerId,
+      salesRepId: input.salesRepId || null,
+      designerId: input.designerId || null,
+      productionManagerId: input.productionManagerId || null,
       isDeleted: false,
     });
 
@@ -135,6 +144,20 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
     if (input.productionManagerId !== undefined) updateData.productionManagerId = input.productionManagerId;
 
     const order = await orderRepo.update(id, updateData);
+
+    // ステータスが PLANNING に変更された場合、在庫を引き当てる
+    if (input.status === OrderStatus.PLANNING && existing.status !== OrderStatus.PLANNING) {
+      const { allocateInventoryForOrder } = await import("./inventory");
+      await allocateInventoryForOrder(id);
+    }
+
+    // ステータスが PLANNING または IN_PRODUCTION から前の状態に戻された場合、引き当てをキャンセル
+    const plannedStatuses = [OrderStatus.PLANNING, OrderStatus.IN_PRODUCTION] as string[];
+    if (input.status && !plannedStatuses.includes(input.status as string) && plannedStatuses.includes(existing.status as string)) {
+      const { revertInventoryAllocation } = await import("./inventory");
+      await revertInventoryAllocation(id);
+    }
+
     return createSuccessResult(order);
   } catch (error) {
     return handlePrismaError(error);
@@ -148,6 +171,13 @@ export async function deleteOrder(id: string): Promise<ActionResult> {
   try {
     if (!id) {
       return createValidationError("id", "案件IDが必要です");
+    }
+
+    // 削除前に引き当てがあれば解除
+    const existing = await orderRepo.findById(id);
+    if (existing && ([OrderStatus.PLANNING, OrderStatus.IN_PRODUCTION] as string[]).includes(existing.status as string)) {
+      const { revertInventoryAllocation } = await import("./inventory");
+      await revertInventoryAllocation(id);
     }
 
     await orderRepo.delete(id);

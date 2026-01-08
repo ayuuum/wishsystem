@@ -1,4 +1,4 @@
-import { GanttChart } from "@/components/gantt-chart";
+import { InteractiveGantt } from "@/components/schedule/interactive-gantt";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,11 @@ export default async function SchedulePage() {
     const orders = ordersResult.success && ordersResult.data ? ordersResult.data.orders : [];
 
     // 各案件の作業指示を取得
-    const scheduleData = await Promise.all(
+    const scheduleData: any[] = await Promise.all(
         orders.map(async (order: any) => {
             const workOrdersResult = await getWorkOrdersByOrderId(order.id);
-            const workOrders = workOrdersResult.success && workOrdersResult.data ? workOrdersResult.data : [];
-            
+            const workOrders = workOrdersResult.success && workOrdersResult.data ? (workOrdersResult.data as any[]) : [];
+
             return {
                 order,
                 workOrders,
@@ -70,7 +70,7 @@ export default async function SchedulePage() {
                     {allTasks.length > 0 ? (
                         <>
                             <div className="gantt-container p-4 mb-6">
-                                <GanttChart tasks={allTasks} />
+                                <InteractiveGantt tasks={allTasks} />
                             </div>
 
                             <div className="space-y-4">
@@ -81,7 +81,7 @@ export default async function SchedulePage() {
                                             <CardHeader className="pb-3">
                                                 <div className="flex items-center justify-between">
                                                     <CardTitle className="text-sm">
-                                                        <Link 
+                                                        <Link
                                                             href={`/orders/${data.order.id}`}
                                                             className="text-primary hover:underline"
                                                         >
@@ -102,13 +102,13 @@ export default async function SchedulePage() {
                                                 <div className="space-y-2">
                                                     {data.workOrders.map((wo: any) => {
                                                         const progress = calculateWorkOrderProgress(wo);
-                                                        const statusBadge = 
+                                                        const statusBadge =
                                                             wo.status === 'COMPLETED' || progress === 100
                                                                 ? { variant: "default" as const, label: "完了" }
                                                                 : wo.status === 'IN_PROGRESS' || progress > 0
-                                                                ? { variant: "outline" as const, label: "実行中" }
-                                                                : { variant: "secondary" as const, label: "未着手" };
-                                                        
+                                                                    ? { variant: "outline" as const, label: "実行中" }
+                                                                    : { variant: "secondary" as const, label: "未着手" };
+
                                                         return (
                                                             <div key={wo.id} className="flex items-center justify-between p-2 rounded border text-xs">
                                                                 <div className="flex-1">
@@ -143,4 +143,3 @@ export default async function SchedulePage() {
         </div>
     );
 }
-

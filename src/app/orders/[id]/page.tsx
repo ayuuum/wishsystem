@@ -21,9 +21,11 @@ import Link from "next/link";
 import { getOrderById } from "@/app/actions/orders";
 import { getWorkOrdersByOrderId } from "@/app/actions/schedule";
 import { getWorkResultsByOrderId } from "@/app/actions/results";
+import { getBomByOrderId } from "@/app/actions/bom";
 import { formatDate, formatDateTime } from "@/lib/utils/date";
 import { calculateProgress } from "@/lib/utils/calculations";
-import { WorkOrderStatus } from "@prisma/client";
+import { Order, WorkOrder, WorkResult } from "@prisma/client";
+import { PdfDownloadButton } from "@/components/orders/pdf-download-button";
 
 const statusMap: Record<string, { label: string; color: string }> = {
     DRAFT: { label: "下書き", color: "bg-slate-500" },
@@ -44,19 +46,23 @@ const workOrderStatusMap: Record<string, { label: string; color: string; icon: s
 };
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
-    const [orderResult, workOrdersResult, resultsResult] = await Promise.all([
-        getOrderById(params.id),
-        getWorkOrdersByOrderId(params.id),
-        getWorkResultsByOrderId(params.id),
+    const { id } = params;
+
+    const [orderResult, workOrdersResult, resultsResult, bomResult] = await Promise.all([
+        getOrderById(id),
+        getWorkOrdersByOrderId(id),
+        getWorkResultsByOrderId(id),
+        getBomByOrderId(id),
     ]);
 
     if (!orderResult.success || !orderResult.data) {
         notFound();
     }
 
-    const order = orderResult.data;
-    const workOrders = workOrdersResult.success && workOrdersResult.data ? workOrdersResult.data : [];
-    const results = resultsResult.success && resultsResult.data ? resultsResult.data : [];
+    const order = orderResult.data as Order;
+    const workOrders = (workOrdersResult.success && workOrdersResult.data ? workOrdersResult.data : []) as WorkOrder[];
+    const results = (resultsResult.success && resultsResult.data ? resultsResult.data : []) as WorkResult[];
+    const bomItems = (bomResult.success && bomResult.data ? bomResult.data : []) as any[];
 
     const progress = calculateProgress(workOrders);
 
@@ -82,9 +88,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                     </Badge>
                     <span className={`
                         px-2 py-0.5 rounded-full text-xs font-bold
-                        ${order.priority === 1 ? 'bg-red-100 text-red-700' : 
-                          order.priority === 2 ? 'bg-orange-100 text-orange-700' : 
-                          'bg-slate-100 text-slate-700'}
+                        ${order.priority === 1 ? 'bg-red-100 text-red-700' :
+                            order.priority === 2 ? 'bg-orange-100 text-orange-700' :
+                                'bg-slate-100 text-slate-700'}
                     `}>
                         P{order.priority}
                     </span>
@@ -139,9 +145,11 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                     <CalendarDays className="mr-2 h-4 w-4" /> 日程管理を表示
                                 </Link>
                             </Button>
-                            <Button className="w-full justify-start" variant="outline" disabled>
-                                <FileText className="mr-2 h-4 w-4" /> 生産指示書 PDF 出力
-                            </Button>
+                            <PdfDownloadButton
+                                order={order}
+                                bomItems={bomItems}
+                                workOrders={workOrders}
+                            />
                         </div>
                     </CardContent>
                 </Card>
@@ -166,8 +174,8 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                             <div className="text-right font-bold text-primary">{progress}%</div>
                                         </div>
                                         <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-muted">
-                                            <div 
-                                                style={{ width: `${progress}%` }} 
+                                            <div
+                                                style={{ width: `${progress}%` }}
                                                 className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary"
                                             ></div>
                                         </div>
@@ -177,8 +185,8 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                         {workOrders.map((wo: any) => {
                                             const statusInfo = workOrderStatusMap[wo.status] || workOrderStatusMap.PLANNED;
                                             return (
-                                                <div 
-                                                    key={wo.id} 
+                                                <div
+                                                    key={wo.id}
                                                     className={`flex items-center gap-3 p-3 rounded-lg border ${statusInfo.color}`}
                                                 >
                                                     <Activity className={`h-5 w-5 ${statusInfo.icon}`} />
@@ -187,8 +195,8 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                                                             {wo.processName} ({statusInfo.label})
                                                         </p>
                                                         <p className="text-xs text-muted-foreground">
-                                                            {wo.actualStartDate 
-                                                                ? `開始: ${formatDate(wo.actualStartDate)}` 
+                                                            {wo.actualStartDate
+                                                                ? `開始: ${formatDate(wo.actualStartDate)}`
                                                                 : `予定: ${formatDate(wo.plannedStartDate)} 〜 ${formatDate(wo.plannedEndDate)}`}
                                                             {wo.actualEndDate && ` / 完了: ${formatDate(wo.actualEndDate)}`}
                                                         </p>
