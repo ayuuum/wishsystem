@@ -65,8 +65,8 @@ export async function getDashboardStats(): Promise<ActionResult> {
     const inventoryStats = await inventoryRepo.getStats();
 
     // アラート通知
-    const alerts = [];
-    
+    const alerts: any[] = [];
+
     // 在庫不足アラート
     const lowStockItems = await inventoryRepo.findMany({ lowStock: true });
     lowStockItems.forEach(item => {
@@ -143,7 +143,6 @@ export async function getDashboardStats(): Promise<ActionResult> {
       upcomingWorkOrders,
     });
   } catch (error) {
-    return handlePrismaError(error);
+    return handlePrismaError(error) as ActionResult<any>;
   }
 }
-

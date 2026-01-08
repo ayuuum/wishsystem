@@ -21,7 +21,7 @@ export async function predictProcessTimeAction(
 ): Promise<ActionResult<{ predictedHours: number | null; averageHours: number | null; dataCount: number }>> {
   try {
     if (!processName) {
-      return createValidationError("processName", "工程名が必要です");
+      return createValidationError("processName", "工程名が必要です") as ActionResult<{ predictedHours: number | null; averageHours: number | null; dataCount: number }>;
     }
 
     // 過去の実績データを取得
@@ -96,13 +96,13 @@ export async function suggestBomFromSimilarOrders(
 }>>> {
   try {
     if (!orderId) {
-      return createValidationError("orderId", "案件IDが必要です");
+      return createValidationError("orderId", "案件IDが必要です") as any;
     }
 
     // 現在の案件を取得
     const currentOrder = await orderRepo.findById(orderId);
     if (!currentOrder) {
-      return createValidationError("orderId", "案件が見つかりません");
+      return createValidationError("orderId", "案件が見つかりません") as any;
     }
 
     // 類似案件を検索
@@ -120,7 +120,7 @@ export async function suggestBomFromSimilarOrders(
     const suggestions = await Promise.all(
       similarOrders.map(async (order) => {
         const bomItems = await bomRepo.findByOrderId(order.id);
-        
+
         // 階層構造をフラット化
         const flattenBom = (items: any[]): any[] => {
           const result: any[] = [];
