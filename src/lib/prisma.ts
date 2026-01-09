@@ -14,5 +14,6 @@ const globalForPrisma = globalThis as unknown as {
 
 export const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// ビルド時の複数ワーカー間でのPrisma Client共有を防ぐため、常にグローバルに保存
+if (!globalForPrisma.prisma) globalForPrisma.prisma = prisma
 

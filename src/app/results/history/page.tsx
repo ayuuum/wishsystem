@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ArrowLeft, Calendar } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getWorkResultsByOrderId } from "@/app/actions/results";
 import { getOrders } from "@/app/actions/orders";
 import { formatDate, formatDateTime } from "@/lib/utils/date";
@@ -92,7 +93,9 @@ export default async function ResultsHistoryPage({
                                 全 {filteredResults.length} 件の実績を表示中
                             </CardDescription>
                         </div>
-                        <ResultsHistorySearchClient initialSearch={search} initialDate={date} />
+                        <Suspense fallback={<div className="w-80 h-10 bg-muted animate-pulse rounded-md" />}>
+                            <ResultsHistorySearchClient initialSearch={search} initialDate={date} />
+                        </Suspense>
                     </div>
                 </CardHeader>
                 <CardContent>

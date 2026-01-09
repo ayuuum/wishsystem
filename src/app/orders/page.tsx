@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Plus, Search } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getOrders } from "@/app/actions/orders";
 import { formatDate } from "@/lib/utils/date";
 import { OrdersSearchClient } from "./orders-search-client";
@@ -75,8 +76,12 @@ export default async function OrdersPage({
                     <div className="flex items-center justify-between">
                         <CardTitle>案件一覧</CardTitle>
                         <div className="flex items-center gap-4">
-                            <OrdersFilterClient initialStatus={status} />
-                            <OrdersSearchClient initialSearch={search} />
+                            <Suspense fallback={<div className="w-40 h-10 bg-muted animate-pulse rounded-md" />}>
+                                <OrdersFilterClient initialStatus={status} />
+                            </Suspense>
+                            <Suspense fallback={<div className="w-72 h-10 bg-muted animate-pulse rounded-md" />}>
+                                <OrdersSearchClient initialSearch={search} />
+                            </Suspense>
                         </div>
                     </div>
                 </CardHeader>
